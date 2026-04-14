@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>상추 삼투현상 시뮬레이션</title>
+    <style>
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            padding: 20px;
+            width: 600px;
+            max-width: 100%;
+        }
+        h1 {
+            font-size: 20px;
+            text-align: center;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        p.subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .simulation-area {
+            display: flex;
+            height: 300px;
+            background-color: #eef2f5;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .wall {
+            width: 40px;
+            height: 100%;
+            background-color: #8d6e63;
+            border-right: 2px solid #5d4037;
+            position: absolute;
+            left: 0;
+            top: 0;
+            z-index: 2;
+        }
+        .wall-text {
+            writing-mode: vertical-rl;
+            text-align: center;
+            height: 100%;
+            color: white;
+            font-weight: bold;
+            letter-spacing: 5px;
+            padding-right: 10px;
+        }
+        .lettuce-container {
+            position: absolute;
+            left: 40px;
+            top: 50px;
+            width: 200px;
+            height: 200px;
+        }
+        /* 상추 잎 모양 CSS */
+        .lettuce-leaf {
+            width: 180px;
+            height: 60px;
+            background: linear-gradient(to right, #8bc34a, #4caf50);
+            border-radius: 0 50% 10% 50%;
+            transform-origin: top left;
+            transform: rotate(60deg); /* 초기 처짐 각도 60도 */
+            transition: transform 2s ease-in-out;
+            box-shadow: inset 0 -5px 10px rgba(0,0,0,0.1);
+        }
+        .water-level {
+            position: absolute;
+            bottom: 0;
+            left: 40px;
+            width: 100%;
+            height: 0;
+            background-color: rgba(33, 150, 243, 0.4);
+            transition: height 1s;
+            z-index: 1;
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .btn-group {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            background-color: #e0e0e0;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #d5d5d5;
+        }
+        button.active {
+            background-color: #4caf50;
+            color: white;
+        }
+        .action-btn {
+            background-color: #2196f3;
+            color: white;
+            font-size: 16px;
+            padding: 12px;
+            width: 100%;
+        }
+        .action-btn:hover {
+            background-color: #1976d2;
+        }
+        .action-btn:disabled {
+            background-color: #aaa;
+            cursor: not-allowed;
+        }
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fffde7;
+            border: 1px solid #fff9c4;
+            border-radius: 5px;
+        }
+        .result-item {
+            margin: 5px 0;
+            font-size: 15px;
+        }
+        .result-value {
+            font-weight: bold;
+            color: #d32f2f;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>상추의 삼투현상 탐구 시뮬레이션</h1>
+    <p class="subtitle">설탕 용액의 농도 변화가 시든 상추의 원형질 복귀에 미치는 영향</p>
+
+    <div class="simulation-area">
+        <div class="wall">
+            <div class="wall-text">수직 고정 벽면</div>
+        </div>
+        <div class="lettuce-container">
+            <div id="lettuce" class="lettuce-leaf"></div>
+        </div>
+        <div id="water" class="water-level"></div>
+    </div>
+
+    <div class="controls">
+        <div style="text-align: center; font-weight: bold;">1. 설탕 용액 농도 선택 (독립변인)</div>
+        <div class="btn-group">
+            <button class="conc-btn" onclick="selectConcentration(0)">0%</button>
+            <button class="conc-btn" onclick="selectConcentration(1)">1%</button>
+            <button class="conc-btn" onclick="selectConcentration(3)">3%</button>
+            <button class="conc-btn" onclick="selectConcentration(5)">5%</button>
+            <button class="conc-btn" onclick="selectConcentration(10)">10%</button>
+        </div>
+        
+        <button id="start-btn" class="action-btn" onclick="startExperiment()" disabled>2. 30분 침지 시작</button>
+        <button onclick="resetExperiment()" style="background-color: #ff9800; color: white;">초기화 (3시간 방치된 상태)</button>
+    </div>
+
+    <div class="results">
+        <div style="font-weight: bold; margin-bottom: 10px;">실험 결과 (종속변인)</div>
+        <div class="result-item">기립 각도: <span id="angle-result" class="result-value">60도 (초기 시든 상태)</span></div>
+        <div class="result-item">질량 변화율: <span id="mass-result" class="result-value">0%</span></div>
+        <div class="result-item" style="margin-top: 10px; font-size: 13px; color: #555;">
+            * 참고: 0도가 뻣뻣한 상태, 90도가 완전히 시든 상태를 의미합니다. (초기값 60도)
+        </div>
+    </div>
+</div>
+
+<script>
+    let selectedConcentration = null;
+    const initialAngle = 60; // 3시간 방치된 시든 상추의 초기 각도
+
+    // 농도별 예상 결과 데이터 (가설에 기반한 시뮬레이션 수치)
+    const experimentData = {
+        0: { angle: 5, mass: "+15.2%", desc: "저장액: 물이 크게 유입되어 뻣뻣해짐" },
+        1: { angle: 25, mass: "+8.5%", desc: "저장액: 물이 유입되어 다소 뻣뻣해짐" },
+        3: { angle: 58, mass: "+0.5%", desc: "등장액 유사: 큰 변화 없음" },
+        5: { angle: 75, mass: "-6.3%", desc: "고장액: 물이 빠져나가 시듦 가속" },
+        10: { angle: 90, mass: "-18.7%", desc: "강한 고장액: 완전히 시듦 (원형질 분리)" }
+    };
+
+    function selectConcentration(conc) {
+        selectedConcentration = conc;
+        
+        // 버튼 스타일 업데이트
+        const buttons = document.querySelectorAll('.conc-btn');
+        buttons.forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+        
+        // 시작 버튼 활성화
+        document.getElementById('start-btn').disabled = false;
+        document.getElementById('start-btn').innerText = `2. ${conc}% 용액에 30분 침지 시작`;
+    }
+
+    function startExperiment() {
+        if (selectedConcentration === null) return;
+
+        const lettuce = document.getElementById('lettuce');
+        const water = document.getElementById('water');
+        const angleResult = document.getElementById('angle-result');
+        const massResult = document.getElementById('mass-result');
+        
+        // 물 차오르는 애니메이션
+        water.style.height = "100%";
+        document.getElementById('start-btn').disabled = true;
+
+        // 1초 뒤(물이 다 차면) 상추 각도 변화 애니메이션 시작
+        setTimeout(() => {
+            const result = experimentData[selectedConcentration];
+            lettuce.style.transform = `rotate(${result.angle}deg)`;
+            
+            // 2초 뒤(애니메이션 끝) 결과 텍스트 출력
+            setTimeout(() => {
+                angleResult.innerText = `${result.angle}도 (${result.desc})`;
+                massResult.innerText = result.mass;
+                
+                // 각도에 따른 색상 변화 (선택사항, 시듦을 표현)
+                if(result.angle > 60) {
+                    lettuce.style.background = "linear-gradient(to right, #9e9d24, #827717)"; // 시든 색상
+                } else {
+                    lettuce.style.background = "linear-gradient(to right, #8bc34a, #4caf50)"; // 싱싱한 색상
+                }
+            }, 2000);
+        }, 1000);
+    }
+
+    function resetExperiment() {
+        selectedConcentration = null;
+        
+        const lettuce = document.getElementById('lettuce');
+        const water = document.getElementById('water');
+        
+        // 버튼 초기화
+        const buttons = document.querySelectorAll('.conc-btn');
+        buttons.forEach(btn => btn.classList.remove('active'));
+        
+        const startBtn = document.getElementById('start-btn');
+        startBtn.disabled = true;
+        startBtn.innerText = "2. 30분 침지 시작";
+
+        // 시각적 요소 초기화
+        water.style.height = "0";
+        lettuce.style.transform = `rotate(${initialAngle}deg)`;
+        lettuce.style.background = "linear-gradient(to right, #8bc34a, #4caf50)";
+
+        // 결과 초기화
+        document.getElementById('angle-result').innerText = "60도 (초기 시든 상태)";
+        document.getElementById('mass-result').innerText = "0%";
+    }
+</script>
+
+</body>
+</html>
